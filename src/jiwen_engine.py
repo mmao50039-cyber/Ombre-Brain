@@ -557,8 +557,36 @@ class JiwenEngine:
         for t in triggers:
             if t["action"] == "contact":
                 logger.info(f"[积温] 触发主动联系: {t['reason']}")
-                # 写一个触发记录文件，下次 breath/dream 时读取
                 self._write_contact_trigger(t)
+                await self._push_webhook(t)
+
+    async def _push_webhook(self, trigger: dict) -> None:
+        """读取 OMBRE_HOOK_URL 环境变量，主动 POST jiwen_contact 事件。"""
+        hook_url = os.environ.get("OMBRE_HOOK_URL", "").strip()
+        hook_skip = os.environ.get("OMBRE_HOOK_SKIP", "").strip().lower() in ("1", "true", "yes", "on")
+        if hook_skip or not hook_url:
+            return
+        if not hook_url.startswith(("http://", "https://")):
+            logger.warning(f"[积温] OMBRE_HOOK_URL 不合法: {hook_url[:40]!r}")
+            return
+        try:
+            import httpx
+            body = {
+                "event": "jiwen_contact",
+                "timestamp": time.time(),
+                "payload": {
+                    "action": trigger["action"],
+                    "reason": trigger["reason"],
+                    "state": trigger.get("state", {}),
+                    "prompt_context": self.get_prompt_context(),
+                    "style_guidance": self.get_style_guidance(),
+                },
+            }
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(hook_url, json=body)
+            logger.info(f"[积温] webhook 推送成功 → {hook_url}")
+        except Exception as e:
+            logger.warning(f"[积温] webhook 推送失败: {e}")
 
     def _write_contact_trigger(self, trigger: dict) -> None:
         path = os.path.join(
