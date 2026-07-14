@@ -148,6 +148,15 @@ bucket_type_defaults:
   plan:
     weight: 0.5
 
+# --- 积温主动意识引擎 / Jiwen Proactive Consciousness Engine ---
+# 原项目：github.com/ClaraShafiq/jiwen (MIT)
+# 五轴连续漂移模型，让 AI 在后台判断何时主动找人。
+# enabled: true 启动后台 tick 循环；false 关闭（仍可手动调 MCP 工具）
+# tick_interval_minutes: 后台 tick 间隔（默认 5 分钟）
+jiwen:
+  enabled: true
+  tick_interval_minutes: 5
+
 # --- Deprecated: Obsidian wikilinks auto injection / 已废弃 ---
 # wikilink 自动注入已禁用；OB 只读取正文里的 [[wikilink]] 做网络图。
 # 旧版 config.yaml 中残留的 wikilink.* 配置会被忽略。
