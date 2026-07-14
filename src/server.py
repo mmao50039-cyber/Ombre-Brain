@@ -68,6 +68,7 @@ from tools import anchor as _t_anchor
 from tools import plan as _t_plan
 from tools import dream as _t_dream
 from tools import i as _t_i
+from tools import jiwen as _t_jiwen
 from tools._common import (
     check_content_size as _check_content_size,
     check_pinned_quota as _check_pinned_quota,
@@ -226,6 +227,13 @@ dehydrator = Dehydrator(config)                      # Dehydrator / 脱水器
 decay_engine = DecayEngine(config, bucket_mgr)       # Decay engine / 衰减引擎
 import_engine = ImportEngine(config, bucket_mgr, dehydrator, embedding_engine)  # Import engine / 导入引擎
 migrate_engine = MigrateEngine(config, bucket_mgr, embedding_engine)              # Migrate engine / 记忆包迁移引擎
+
+# --- Jiwen Engine / 积温主动意识引擎 ---
+from jiwen_engine import JiwenEngine
+jiwen_engine = JiwenEngine(
+    buckets_dir=config.get("buckets_dir", "buckets"),
+    config=config,
+)
 
 # --- GitHub Sync / GitHub 同步 ---
 from github_sync import GitHubSync  # type: ignore
@@ -557,6 +565,7 @@ _tools_runtime.init(
     decay_engine=decay_engine,
     embedding_engine=embedding_engine,
     import_engine=import_engine,
+    jiwen_engine=jiwen_engine,
     logger=logger,
     fire_webhook=_fire_webhook,
     mark_op=_mark_op,
@@ -791,6 +800,41 @@ async def I(
     )
 
 
+@mcp_extra.tool()
+async def jiwen_state() -> str:
+    """查看积温引擎（主动意识引擎）的当前状态：五轴数值、内心描述、说话风格指引。如果有待处理的主动联系触发，会一并返回。积温管「为什么说」和「怎么说」，记忆管「说什么」。"""
+    return await _with_notice(
+        _t_jiwen.dispatch_state(),
+        op="jiwen_state",
+        args={},
+    )
+
+
+@mcp_extra.tool()
+async def jiwen_delta(
+    connection: Optional[float] = 0,
+    pride: Optional[float] = 0,
+    valence: Optional[float] = 0,
+    arousal: Optional[float] = 0,
+    user_status: Optional[str] = "",
+    event: Optional[str] = "",
+) -> str:
+    """更新积温状态。可直接传五轴增量(如 valence=+0.2 pride=-0.1),也可用预设事件快捷更新: chat_start(开始聊天)/chat_end(结束)/goodnight(晚安)/got_reply(收到回复)/got_ignored(被忽略)/had_fun(开心)/had_fight(吵架)/made_up(和好)/missing_her(想她)/she_said_love(她说爱你)。user_status 可选:active/busy/away/sleeping。"""
+    return await _with_notice(
+        _t_jiwen.dispatch_delta(
+            connection=connection or 0, pride=pride or 0,
+            valence=valence or 0, arousal=arousal or 0,
+            user_status=user_status, event=event,
+        ),
+        op="jiwen_delta",
+        args={
+            "connection": connection, "pride": pride,
+            "valence": valence, "arousal": arousal,
+            "user_status": user_status, "event": event,
+        },
+    )
+
+
 @mcp.tool()
 async def dream(window_hours: Optional[int] = 48) -> str:
     """读取最近 window_hours（默认 48h）内有变动的所有记忆桶,用于回顾与消化。
@@ -928,6 +972,10 @@ if __name__ == "__main__":
                         await decay_engine.start()
                     except Exception as _decay_exc:
                         logger.warning(f"decay engine start at boot failed: {_decay_exc}")
+                    try:
+                        await jiwen_engine.start()
+                    except Exception as _jiwen_exc:
+                        logger.warning(f"jiwen engine start at boot failed: {_jiwen_exc}")
                     # 裸机 + 本地向量化时，把 ollama 作为 OB 子进程拉起（常驻）。
                     # Docker / 云端向量化下是 no-op。
                     try:
@@ -951,6 +999,10 @@ if __name__ == "__main__":
                     yield
                     try:
                         await decay_engine.stop()
+                    except Exception:
+                        pass
+                    try:
+                        await jiwen_engine.stop()
                     except Exception:
                         pass
                     try:
