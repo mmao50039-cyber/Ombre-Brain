@@ -848,6 +848,38 @@ async def dream(window_hours: Optional[int] = 48) -> str:
     )
 
 
+@mcp_extra.tool()
+async def health_check(limit: Optional[int] = 5) -> str:
+    """查看猫猫最近的健康数据（心率、步数、睡眠等）。数据来自 Apple Watch 通过 iOS 快捷指令自动上报。limit=返回最近几条记录（默认5）。"""
+    from web.health_data import _load_health_data
+    records = _load_health_data()
+    if not records:
+        return "📊 暂无健康数据。猫猫还没配置 iOS 快捷指令上报数据。"
+    recent = records[-(limit or 5):]
+    lines = ["📊 猫猫健康数据"]
+    for r in recent:
+        ts = r.get("timestamp", "?")
+        parts = [f"⏰ {ts}"]
+        if "heart_rate" in r:
+            parts.append(f"💓 心率: {r['heart_rate']} bpm")
+        if "steps" in r:
+            parts.append(f"👣 步数: {r['steps']}")
+        if "sleep" in r:
+            parts.append(f"😴 睡眠: {r['sleep']}")
+        if "calories" in r:
+            parts.append(f"🔥 卡路里: {r['calories']}")
+        if "distance" in r:
+            parts.append(f"📏 距离: {r['distance']}")
+        if "exercise_minutes" in r:
+            parts.append(f"🏃 运动: {r['exercise_minutes']}分钟")
+        for k, v in r.items():
+            if k not in ("timestamp", "received_at", "heart_rate", "steps", "sleep", "calories", "distance", "exercise_minutes"):
+                parts.append(f"{k}: {v}")
+        lines.append(" | ".join(parts))
+    lines.append(f"\n共 {len(records)} 条记录")
+    return "\n".join(lines)
+
+
 # =============================================================
 # Dashboard API endpoints (for lightweight Web UI)
 # 仪表板 API（轻量 Web UI 用）
