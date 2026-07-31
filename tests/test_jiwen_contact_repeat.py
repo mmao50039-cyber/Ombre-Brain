@@ -91,7 +91,6 @@ def test_seen_event_clears_connection_without_touching_mood():
     got_reply 带 pride-0.1/valence+0.05，自动化调用一天几十次会把状态压到底。
     """
     import asyncio
-    from types import SimpleNamespace
 
     e = _engine()
     e._state.pride = 0.4
@@ -103,7 +102,8 @@ def test_seen_event_clears_connection_without_touching_mood():
     rt.jiwen_engine = e
     try:
         from tools.jiwen import dispatch_delta
-        out = asyncio.get_event_loop().run_until_complete(dispatch_delta(event="seen"))
+        # 不能用 get_event_loop()：全套跑时前面的测试会把循环关掉
+        out = asyncio.run(dispatch_delta(event="seen"))
     finally:
         rt.jiwen_engine = old
 
