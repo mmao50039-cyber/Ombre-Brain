@@ -125,6 +125,13 @@ def _verify_pkce(code_verifier: str, code_challenge: str) -> bool:
 
 
 def _is_valid_mcp_token(token: str) -> bool:
+    # 固定令牌通道：给无法走 OAuth 浏览器流程的无头客户端用（如 tg.js / claude CLI）。
+    # 设了 OMBRE_MCP_STATIC_TOKEN（≥16 位）后，持有相同令牌的请求直接放行；
+    # 不设则此通道不存在，行为与之前完全一致。每次调用现读 env，改令牌只需重启。
+    static = os.environ.get("OMBRE_MCP_STATIC_TOKEN", "").strip()
+    if len(static) >= 16 and secrets.compare_digest(token, static):
+        return True
+
     expiry = _mcp_tokens.get(token)
     if expiry is None:
         return False
