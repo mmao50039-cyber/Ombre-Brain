@@ -92,6 +92,10 @@ async def dispatch_delta(
     # 预设事件快捷方式
     if event:
         presets = {
+            # seen：纯机械事件，聊天前端每次收到她的消息都会打一下。
+            # 只清连接需求，不带任何情绪增减 —— 高不高兴该由言自己判断后再调，
+            # 不能让「她说了句话」这种事每天自动扣几十次骄傲。
+            "seen": {},
             "chat_start": {"connection": -0.2, "pride": -0.05, "valence": 0.1},
             "chat_end": {"valence": 0.05},
             "goodnight": {"valence": 0.1, "arousal": -0.2},
@@ -103,9 +107,9 @@ async def dispatch_delta(
             "missing_her": {"connection": 0.1, "pride": -0.1},
             "she_said_love": {"valence": 0.4, "pride": -0.2, "connection": -0.15},
         }
-        preset = presets.get(event, {})
-        if not preset:
+        if event not in presets:
             return f"❌ 未知事件: {event}\n可用事件: {', '.join(presets.keys())}"
+        preset = presets[event]
         connection += preset.get("connection", 0)
         pride += preset.get("pride", 0)
         valence += preset.get("valence", 0)
@@ -124,7 +128,7 @@ async def dispatch_delta(
         )
 
     # 标记最新消息（对话中调用 = 猫猫正在说话）
-    if event in ("chat_start", "got_reply"):
+    if event in ("chat_start", "got_reply", "seen"):
         jiwen.reset_connection()
         import time
         jiwen.set_last_message(

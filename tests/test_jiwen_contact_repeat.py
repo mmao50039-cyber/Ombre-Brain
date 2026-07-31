@@ -83,3 +83,33 @@ def test_reset_connection_stops_contact():
     e.reset_connection()
     e._state.last_contact_at = 0
     assert not _contacts(_tick_after(e))
+
+
+def test_seen_event_clears_connection_without_touching_mood():
+    """前端每条消息都会打 seen —— 它只能清需求，不能顺手改情绪。
+
+    got_reply 带 pride-0.1/valence+0.05，自动化调用一天几十次会把状态压到底。
+    """
+    import asyncio
+    from types import SimpleNamespace
+
+    e = _engine()
+    e._state.pride = 0.4
+    e._state.valence = 0.3
+    e._state.arousal = 0.1
+
+    import tools._runtime as rt
+    old = getattr(rt, "jiwen_engine", None)
+    rt.jiwen_engine = e
+    try:
+        from tools.jiwen import dispatch_delta
+        out = asyncio.get_event_loop().run_until_complete(dispatch_delta(event="seen"))
+    finally:
+        rt.jiwen_engine = old
+
+    assert "未知事件" not in out, out
+    assert e._state.connection == 0.0
+    assert e._state.pride == 0.4, "seen 不该动 pride"
+    assert e._state.valence == 0.3, "seen 不该动 valence"
+    assert e._state.arousal == 0.1, "seen 不该动 arousal"
+    assert e._state.last_message_time > 0
