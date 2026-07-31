@@ -160,13 +160,13 @@ jiwen:
   # *_decay_rate: 每分钟往中点回落多少（线性）。数越小，情绪留得越久。
   #   pride 0.0008 ≈ -0.5 走到 0 要 10 小时；valence 0.001 ≈ +0.4 要 6.7 小时；
   #   arousal 0.005 ≈ +0.4 要 1.3 小时（唤醒本来就该快落）。
-  # contact_cooldown_minutes: 两次主动联系至少间隔多久（默认 120）。
+  # contact_cooldown_minutes: 两次主动联系至少间隔多久（默认 240）。
   # contact_relief: 开口一次扣掉多少连接需求（默认 0.5）。
   #   这两个防的是同一件事：需求卡在阈值上方时每个 tick 都触发，同一件事反复推送。
   # pride_decay_rate: 0.0008
   # valence_decay_rate: 0.001
   # arousal_decay_rate: 0.005
-  # contact_cooldown_minutes: 120
+  # contact_cooldown_minutes: 240
   # contact_relief: 0.5
 
 # --- Deprecated: Obsidian wikilinks auto injection / 已废弃 ---
