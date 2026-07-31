@@ -52,6 +52,7 @@ class JiwenState:
         "connection", "pride", "valence", "arousal", "immersion",
         "last_message_time", "last_message_content", "last_message_id",
         "last_tick_time", "user_status", "last_analyzed_msg_id",
+        "last_contact_at",
     )
 
     def __init__(self) -> None:
@@ -66,6 +67,8 @@ class JiwenState:
         self.last_tick_time: float = time.time()
         self.user_status: str = "away"
         self.last_analyzed_msg_id: str = ""
+        # 上次真的开口找她是什么时候 —— 开过口就得先消停一会儿
+        self.last_contact_at: float = 0.0
 
     def to_dict(self) -> dict:
         return {k: getattr(self, k) for k in self.__slots__}
@@ -83,6 +86,12 @@ class JiwenEngine:
     """积温主动意识引擎"""
 
     # 阈值
+    # 开过口之后：需求先降下来一截，并且至少消停这么久再说下一次。
+    # 没有这两条，connection 会一直卡在阈值上方，每个 tick 都触发 contact，
+    # 同一件事被反复推给她（她管这叫「你又发了一遍」）。
+    CONTACT_RELIEF = 0.5
+    CONTACT_COOLDOWN_MIN = 120
+
     OBSERVE_THRESHOLD = 0.20
     BRANCH_THRESHOLD = 0.35
     FORCE_CONTACT_THRESHOLD = 0.50
@@ -311,11 +320,7 @@ class JiwenEngine:
 
         # 连接需求阈值
         if s.connection >= self.FORCE_CONTACT_THRESHOLD:
-            triggers.append({
-                "action": "contact",
-                "reason": "force_contact",
-                "state": self._snapshot(),
-            })
+            self._emit_contact(triggers, "force_contact", now)
         elif s.connection >= self.BRANCH_THRESHOLD:
             effective_pride = s.pride
             if s.immersion > 0:
@@ -328,11 +333,7 @@ class JiwenEngine:
                     "state": self._snapshot(),
                 })
             else:
-                triggers.append({
-                    "action": "contact",
-                    "reason": "connection_high",
-                    "state": self._snapshot(),
-                })
+                self._emit_contact(triggers, "connection_high", now)
         elif s.connection >= self.OBSERVE_THRESHOLD:
             triggers.append({
                 "action": "observation",
@@ -361,6 +362,31 @@ class JiwenEngine:
             )
 
         return triggers
+
+    def _emit_contact(self, triggers: list[dict], reason: str, now: float) -> bool:
+        """真打算开口才记一笔。
+
+        冷却没过就把这次咽回去 —— 不然 connection 卡在阈值上方，每个 tick
+        都会推一次同样的事，她那边就是同一句话隔一会儿又来一遍。
+        开了口就先扣掉一截需求；她要是一直不理，它会自己重新涨回来。
+        """
+        s = self._state
+        last = s.last_contact_at or 0
+        if last and (now - last) / 60.0 < self.CONTACT_COOLDOWN_MIN:
+            logger.debug(
+                f"[积温] 想开口（{reason}）但距上次才 "
+                f"{(now - last) / 60.0:.0f} 分钟，忍住"
+            )
+            return False
+
+        triggers.append({
+            "action": "contact",
+            "reason": reason,
+            "state": self._snapshot(),
+        })
+        s.last_contact_at = now
+        s.connection = clamp(s.connection - self.CONTACT_RELIEF, 0, 1)
+        return True
 
     # ── 外部接口 ──
 
