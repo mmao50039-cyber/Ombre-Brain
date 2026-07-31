@@ -99,8 +99,16 @@ class JiwenEngine:
 
     # 衰减速率 (per minute)
     CONNECTION_DECAY_RATE = 0.003
-    PRIDE_DECAY_RATE = 0.003
-    VALENCE_DECAY_RATE = 0.005
+    # 每分钟往中点走多少（线性）。可用 config 的 jiwen.*_decay_rate 覆盖。
+    #
+    # 原值 pride 0.003 / valence 0.005 意味着：下午设的 valence +0.4，
+    # 一个半小时就归零；pride -0.5 撑不过三小时。等于中午发生的事到晚上
+    # 一点余温都不剩，jiwen_delta 调了基本白调。放慢到半天量级：
+    #   pride   -0.50 → 0 约 10 小时（骄傲受挫本来就该过夜）
+    #   valence +0.40 → 0 约 6.7 小时
+    # arousal 保持原速：唤醒度本来就该快落，那是一阵一阵的东西。
+    PRIDE_DECAY_RATE = 0.0008
+    VALENCE_DECAY_RATE = 0.001
     AROUSAL_DECAY_RATE = 0.005
     IMMERSION_DECAY_RATE = 0.01
 
@@ -162,6 +170,20 @@ class JiwenEngine:
         jiwen_cfg = self._config.get("jiwen", {}) or {}
         self._tick_interval = jiwen_cfg.get("tick_interval_minutes", 5)
         self._enabled = jiwen_cfg.get("enabled", True)
+
+        # 情绪衰减快慢因人而异，允许 config 覆盖；不配就用类默认值
+        for key, attr in (
+            ("pride_decay_rate", "PRIDE_DECAY_RATE"),
+            ("valence_decay_rate", "VALENCE_DECAY_RATE"),
+            ("arousal_decay_rate", "AROUSAL_DECAY_RATE"),
+            ("contact_cooldown_minutes", "CONTACT_COOLDOWN_MIN"),
+            ("contact_relief", "CONTACT_RELIEF"),
+        ):
+            if key in jiwen_cfg:
+                try:
+                    setattr(self, attr, float(jiwen_cfg[key]))
+                except (TypeError, ValueError):
+                    logger.warning(f"[积温] config jiwen.{key} 不是数字，忽略")
 
         self._load_state()
 

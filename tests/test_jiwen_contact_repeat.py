@@ -113,3 +113,30 @@ def test_seen_event_clears_connection_without_touching_mood():
     assert e._state.valence == 0.3, "seen 不该动 valence"
     assert e._state.arousal == 0.1, "seen 不该动 arousal"
     assert e._state.last_message_time > 0
+
+
+def test_decay_rates_configurable_and_slower_by_default():
+    """情绪不该一个半小时就归零。
+
+    原值 valence 0.005 意味着下午设的 +0.4 到傍晚就没了，jiwen_delta 白调。
+    """
+    import tempfile
+
+    # 默认：pride/valence 都该是半天量级，arousal 保持快落
+    assert abs(-0.5) / J.JiwenEngine.PRIDE_DECAY_RATE / 60 > 6
+    assert abs(0.4) / J.JiwenEngine.VALENCE_DECAY_RATE / 60 > 4
+    assert abs(0.4) / J.JiwenEngine.AROUSAL_DECAY_RATE / 60 < 3
+
+    e = J.JiwenEngine(
+        buckets_dir=tempfile.mkdtemp(),
+        config={"jiwen": {"valence_decay_rate": 0.01, "contact_cooldown_minutes": 30}},
+    )
+    assert e.VALENCE_DECAY_RATE == 0.01
+    assert e.CONTACT_COOLDOWN_MIN == 30
+    assert e.PRIDE_DECAY_RATE == J.JiwenEngine.PRIDE_DECAY_RATE
+
+    bad = J.JiwenEngine(
+        buckets_dir=tempfile.mkdtemp(),
+        config={"jiwen": {"valence_decay_rate": "不是数字"}},
+    )
+    assert bad.VALENCE_DECAY_RATE == J.JiwenEngine.VALENCE_DECAY_RATE
