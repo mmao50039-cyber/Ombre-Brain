@@ -90,9 +90,9 @@ class JiwenEngine:
     # 没有这两条，connection 会一直卡在阈值上方，每个 tick 都触发 contact，
     # 同一件事被反复推给她（她管这叫「你又发了一遍」）。
     CONTACT_RELIEF = 0.5
-    # 240：每次主动开口都是一次完整的 Claude 冷启动（soul + 全天历史全额重算），
-    # 是空闲时段烧额度的大头。从 120 放宽到 240，主动开口频率减半。
-    CONTACT_COOLDOWN_MIN = 240
+    # 曾为省额度放宽到 240；她升 Max + TG 侧 0点自动重生上线后调回 120。
+    # TG 那边自己还有一道同样 120 分钟的闸（CONTACT_MIN_GAP_MIN），双保险。
+    CONTACT_COOLDOWN_MIN = 120
 
     OBSERVE_THRESHOLD = 0.20
     BRANCH_THRESHOLD = 0.35
